@@ -92,27 +92,54 @@
         
         function updateCell ({ x, y, value }) {
             const newState = structuredClone (STATE)
+            const constants = generateCellsConstants(newState)
 
             const cell =newState[x][y]
 
-            cell.computedValue = computedValue(value)// -> span
+            cell.computedValue = computeValue(value, constants)// -> span
             cell.value = value // -> input
 
             newState[x][y] = cell
 
-            STATE = newState
-
+           computeAllCells(newState, generateCellsConstants(newState))
+           
+           STATE = newState
+             
             renderSpreadSheet()
         }
+
+        function generateCellsConstants (cells) {
+            return cells.map((rows, x) => {
+                return rows.map((cell, y) => {
+                    const letter = getColumn(x) // -> A
+                    const cellId = `${letter}${y + 1}` // A1
+                    return `const ${cellId} = ${cell.computedValue};`
+                }).join('\n')
+            }).join('\n')
+        }
+
+        function computeAllCells( cells, constants) {
+            console.log('computeAllCells')
+            cells.forEach((rows, x) => {
+                rows.forEach((cell, y) => {
+                    const computedValue = computeValue(cell.value, constants)
+                    cell.computedValue = computedValue
+                })
+            })
+        }
         
-        function computedValue (value) {
+        function computeValue (value, constants) {
+            if (typeof value === 'number') return value
             if (!value.startsWith('=')) return value
 
             const formula = value.slice(1)
 
             let computedValue
             try {
-                computedValue= eval(formula)
+                computedValue= eval(`(() => {
+                ${constants}
+                return ${formula}
+            })()`)
             } catch (e) {
                 computedValue = `!ERROR: ${e.message}`
             }
@@ -120,7 +147,6 @@
             return computedValue
         }
 
-        
         const renderSpreadSheet = () => {
            const headerHTML = `<tr>
                 <th></th>
